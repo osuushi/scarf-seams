@@ -1,1 +1,4 @@
 _*.gcode
+node_modules
+.vscode
+dist
