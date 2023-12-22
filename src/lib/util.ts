@@ -38,12 +38,30 @@ export class Point {
     return new Point(this.x + vec[0], this.y + vec[1], this.z + vec[2]);
   }
 
+  toVector(): Vec<3> {
+    return [this.x, this.y, this.z];
+  }
+
+  isFinite() {
+    return isFinite(this.x) && isFinite(this.y) && isFinite(this.z);
+  }
+
   get [Symbol.toStringTag]() {
     return `{${this.x}, ${this.y}, ${this.z}}`;
   }
+
+  // A point with infinite coordinates. By convention, we use Infinity when a
+  // coordinate is not known.
+  static get unknown(): Point {
+    return new Point(Infinity, Infinity, Infinity);
+  }
+
+  static get zero(): Point {
+    return new Point(0, 0, 0);
+  }
 }
 
-export type Coordinate = "x" | "y" | "z";
+export type Coordinate = 'x' | 'y' | 'z';
 
 export type Vec<T> = number[] & { length: T };
 
@@ -84,4 +102,4 @@ export type PrintMove = {
   extrusion: number;
 };
 
-export type MoveMode = "absolute" | "relative";
+export type MoveMode = 'absolute' | 'relative';

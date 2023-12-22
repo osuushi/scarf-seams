@@ -5,7 +5,7 @@ import {
   printProgress,
   prohibitedCodes,
   relativeMode,
-} from "./codes";
+} from './codes';
 import {
   Coordinate,
   MoveMode,
@@ -14,7 +14,7 @@ import {
   lerpPoints,
   normalize,
   vMul,
-} from "./util";
+} from './util';
 
 export type ProcessorParameters = {
   gcode: string;
@@ -37,7 +37,7 @@ class Processor {
   // original gcode wouldn't have.
   minZ = Infinity;
 
-  currentMode = "absolute" as MoveMode;
+  currentMode = 'absolute' as MoveMode;
   inputGcodeLines: string[] = [];
   outputGcodeLines: string[] = [];
   constructor(params: ProcessorParameters) {
@@ -46,7 +46,7 @@ class Processor {
     // infinity until they are known to prevent making invalid moves.
     this.currentPosition = new Point(Infinity, Infinity, Infinity);
     this.params = params;
-    this.inputGcodeLines = this.params.gcode.split("\n");
+    this.inputGcodeLines = this.params.gcode.split('\n');
   }
 
   process(): string {
@@ -60,14 +60,14 @@ class Processor {
     // belong in a closed loop. We then process the chunk, potentially replacing
     // it, if it's a closed loop.
     const dumpChunk = (mightBeLoop = true) => {
-      if (!mightBeLoop || this.currentMode === "relative") {
+      if (!mightBeLoop || this.currentMode === 'relative') {
         // If we're currently in relative mode, we can't be in a loop. We can
         // save some time by skipping the processing.
         this.outputGcodeLines.push(...currentChunk);
       } else {
         const processedChunk = this.replaceChunkIfNeeded(
           positionAtStartOfChunk,
-          currentChunk
+          currentChunk,
         );
         this.outputGcodeLines.push(...processedChunk);
       }
@@ -78,7 +78,7 @@ class Processor {
       currentChunk = [];
     };
 
-    for (let line of this.inputGcodeLines) {
+    for (const line of this.inputGcodeLines) {
       if (this.isCommentOrBlank(line)) {
         // Preserve comments, since some comments are meaningful to some
         // printers, but just write them directly to the output so that they
@@ -97,7 +97,7 @@ class Processor {
         // no law that says that has to happen. So we dump the chunk just in
         // case we're already in absolute mode and it turns out to be a loop.
         dumpChunk();
-        this.currentMode = "absolute";
+        this.currentMode = 'absolute';
         currentChunk.push(line);
         dumpChunk(false); // this can't be a loop, because we just wrote an absolute mode command
         continue;
@@ -106,7 +106,7 @@ class Processor {
       if (command === relativeMode) {
         // We need to dump _before_ we switch to relative mode, because
         dumpChunk();
-        this.currentMode = "relative";
+        this.currentMode = 'relative';
         currentChunk.push(line);
         continue;
       }
@@ -121,7 +121,7 @@ class Processor {
           // Retracting ends any loop
           this.extrusionForLine(line) < 0 ||
           // Not specifying X or Y ends any loop
-          !("X" in args || "Y" in args)
+          !('X' in args || 'Y' in args)
         ) {
           this.currentPosition = point;
           currentChunk.push(line);
@@ -156,7 +156,7 @@ class Processor {
         // chunks, so if the current chunk might be a loop, we just dump it
         // directly into the output. This will slightly affect the accuracy of
         // print progress, but it should be a small effect.
-        if (this.currentMode === "absolute") {
+        if (this.currentMode === 'absolute') {
           this.outputGcodeLines.push(line);
         } else {
           // If we're in relative mode, we're safe to put the line in the
@@ -171,7 +171,7 @@ class Processor {
       dumpChunk(false); // Whatever we just appended can't be part of a loop
     }
     dumpChunk();
-    return this.outputGcodeLines.join("\n");
+    return this.outputGcodeLines.join('\n');
   }
 
   // Determine if the chunk is a closed loop, and if so, modify it so that the
@@ -249,9 +249,9 @@ class Processor {
 
       // There might be a feed rate on the final line, so we need to preserve that
       const existingFinalFeed = commandArgs(lastLeadingLine).F;
-      let newFinalLine = maybeAddFeed(
+      const newFinalLine = maybeAddFeed(
         `G1 X${finalPoint.x} Y${finalPoint.y} Z${finalPoint.z} E${finalPointExtrusion}`,
-        existingFinalFeed
+        existingFinalFeed,
       );
 
       // Move the final line to the remainder of the chunk
@@ -269,27 +269,27 @@ class Processor {
     const startingOverlap = this.applyTaper(
       startingPoint,
       overlapSection,
-      "start"
+      'start',
     );
 
-    const endingOverlap = this.applyTaper(lastPoint, chunk, "end");
+    const endingOverlap = this.applyTaper(lastPoint, chunk, 'end');
     return [
-      "; Scarfing loop:",
+      '; Scarfing loop:',
       ...startingOverlap,
       ...chunk,
       ...endingOverlap,
-      "; Loop scarfed over",
+      '; Loop scarfed over',
     ];
   }
 
   applyTaper(
     startingPoint: Point,
     overlapSection: string[],
-    side: "start" | "end"
+    side: 'start' | 'end',
   ) {
     const startZ = Math.max(
       startingPoint.z - this.params.layerHeight,
-      this.minZ
+      this.minZ,
     );
     const endZ = startingPoint.z;
 
@@ -299,7 +299,7 @@ class Processor {
     let t = 0;
     let previousPoint = startingPoint;
     const result = [];
-    for (let line of overlapSection) {
+    for (const line of overlapSection) {
       const point = this.pointForLine(line);
       const distance = point.distanceTo(previousPoint);
       const distanceFraction = distance / totalDistance;
@@ -317,13 +317,13 @@ class Processor {
       // while the height tapers at the start, the end is flat on top.
       // Therefore, there is no Z taper on the end sequence, but there is on the
       // start.
-      let z = side === "start" ? lerp(startZ, endZ, t) : endZ;
-      const eParameter = side === "start" ? t : 1 - t; // The extrusion ramps up for the start and down for the end.
+      const z = side === 'start' ? lerp(startZ, endZ, t) : endZ;
+      const eParameter = side === 'start' ? t : 1 - t; // The extrusion ramps up for the start and down for the end.
       const e = this.extrusionForLine(line) * eParameter; // taper extrusion
       const feedRate = commandArgs(line).F;
       const newLine = maybeAddFeed(
         `G1 X${point.x} Y${point.y} Z${z} E${e}`,
-        feedRate
+        feedRate,
       );
       result.push(newLine);
       previousPoint = point;
@@ -333,9 +333,9 @@ class Processor {
 
   subdivideChunk(startingPoint: Point, chunk: string[]): string[] {
     const result = [];
-    let prevPoint = startingPoint;
-    let stepDistance = this.params.taperResolution;
-    for (let line of chunk) {
+    const prevPoint = startingPoint;
+    const stepDistance = this.params.taperResolution;
+    for (const line of chunk) {
       const curPoint = this.pointForLine(line);
       const curE = this.extrusionForLine(line);
       const maybeFeedRate = commandArgs(line).F;
@@ -343,14 +343,14 @@ class Processor {
       const steps = Math.ceil(curDistance / stepDistance);
 
       // We don't interpolate extrusion, but instead divide it evenly among the steps, since it's relative
-      let ePerStep = curE / steps;
+      const ePerStep = curE / steps;
       for (let i = 0; i < steps; i++) {
         const u = (i + 1) / steps; // The previous point was always covered by the previous loop iteration
         const newPoint = lerpPoints(prevPoint, curPoint, u);
 
         const newLine = maybeAddFeed(
           `G1 X${newPoint.x} Y${newPoint.y} Z${newPoint.z} E${ePerStep}`,
-          maybeFeedRate
+          maybeFeedRate,
         );
         result.push(newLine);
       }
@@ -365,9 +365,9 @@ class Processor {
       const point = this.pointForLine(line, startingPoint);
       const extrusion = this.extrusionForLine(line);
       const feedRate = commandArgs(line).F;
-      let fullCommand = maybeAddFeed(
+      const fullCommand = maybeAddFeed(
         `G1 X${point.x} Y${point.y} Z${point.z} E${extrusion}`,
-        feedRate
+        feedRate,
       );
 
       startingPoint = point;
@@ -403,16 +403,16 @@ class Processor {
       // we do have to know if we're in absolute or relative mode, or we will
       // interpret the move codes incorrectly.
       if (cmd === absoluteMode) {
-        moveMode = "absolute";
+        moveMode = 'absolute';
         continue;
       }
 
       if (cmd === relativeMode) {
-        moveMode = "relative";
+        moveMode = 'relative';
         continue;
       }
 
-      if (moveMode === "absolute" && isMove(cmd)) {
+      if (moveMode === 'absolute' && isMove(cmd)) {
         // Note that X and Y will be infinite here, since we're not
         // accumulating. Z might also be infinite, but that's fine with
         // Math.min.
@@ -423,21 +423,21 @@ class Processor {
     if (Number.isFinite(minZ)) {
       this.minZ = minZ;
     } else {
-      throw new Error("Could not find minimum Z coordinate");
+      throw new Error('Could not find minimum Z coordinate');
     }
   }
 
   pointForLine(line: string, startingPoint = this.currentPosition) {
     const args = commandArgs(line);
     const point = startingPoint.clone();
-    for (let coord of ["x", "y", "z"] as Coordinate[]) {
+    for (const coord of ['x', 'y', 'z'] as Coordinate[]) {
       const value = args[coord.toUpperCase()];
       if (value) {
         switch (this.currentMode) {
-          case "absolute":
+          case 'absolute':
             point[coord] = value;
             break;
-          case "relative":
+          case 'relative':
             point[coord] += value;
             break;
         }
@@ -462,16 +462,16 @@ class Processor {
         throw new Error(
           `Prohibited code: ${command} - ${
             prohibitedCodes[command as keyof typeof prohibitedCodes]
-          }`
+          }`,
         );
       }
-      if (command === "G92") {
+      if (command === 'G92') {
         // Reset commands are dangerous, but only if they change the Z coordinate.
         // We don't want to prohibit them if they don't.
         const args = commandArgs(line);
         if (args.Z != null) {
           throw new Error(
-            "Prohibited code: G92 with Z argument. Z coordinate resets are not handled, and could cause build surface crashes."
+            'Prohibited code: G92 with Z argument. Z coordinate resets are not handled, and could cause build surface crashes.',
           );
         }
       }
@@ -479,7 +479,7 @@ class Processor {
   }
 
   isCommentOrBlank(line: string): boolean {
-    return line.startsWith(";") || line.trim() === "";
+    return line.startsWith(';') || line.trim() === '';
   }
 
   commandForLine(line: string): string {
@@ -496,8 +496,8 @@ function approxEqual(a: number, b: number): boolean {
 
 // Split a command and also stop at any comment
 function splitCommand(command: string): string[] {
-  const commandAndMaybeComment = command.split(";");
-  const commandParts = commandAndMaybeComment[0].split(" ");
+  const commandAndMaybeComment = command.split(';');
+  const commandParts = commandAndMaybeComment[0].split(' ');
   return commandParts;
 }
 
@@ -506,7 +506,7 @@ function commandArgs(command: string): Record<string, number> {
   const argParts = parts.slice(1);
   const args: Record<string, number> = {};
   for (const argPart of argParts) {
-    if (argPart === "") continue;
+    if (argPart === '') continue;
     const key = argPart[0].toUpperCase();
     const value = parseFloat(argPart.slice(1));
     args[key] = value;
