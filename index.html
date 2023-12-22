@@ -27,9 +27,9 @@
       </p>
       <p>
         Theoretically, this should work with any printer that uses Marlin style
-        gcode and absolute positioning. So far, I've tested it on my Bambulab
-        X1C (with gcode from OrcaSlicer), and my Prusa mk3s+ (with gcode from
-        PrusaSlicer).
+        gcode and absolute positioning during print moves. So far, I've tested
+        it on my Bambulab X1C (with gcode from OrcaSlicer), and my Prusa mk3s+
+        (with gcode from PrusaSlicer).
       </p>
       <p>
         <strong>Requirements:</strong>
@@ -58,14 +58,14 @@
         wrong, your nozzle might crash into your print bed.
       </p>
       <form id="process-form">
-        <label for="layer-height">Layer Height</label><input type="number" id="layer-height" value="0.2">
-        <label for="overlap">Overlap Distance (mm)</label><input type="number" id="overlap" value="4">
+        <label for="layer-height">Layer Height</label><input type="number" id="layer-height" value="0.2" step="0.01">
+        <label for="overlap">Overlap Distance (mm)</label><input type="number" id="overlap" value="6">
         <label for="choose-file">Choose a gcode file:</label>
           <input type="file" id="choose-file" accept=".gcode" />
         <button type="submit" id="process-button">Process</button>
         <h3>Advanced</h3>
-        <label for="loop-tolerance">Loop Tolerance (mm)</label><input type="number" id="loop-tolerance" value="0.1">
-        <label for="taper-resolution">Taper resolution (mm)</label><input type="number" id="taper-resolution" value="0.1">
+        <label for="loop-tolerance">Loop Tolerance (mm)</label><input type="number" id="loop-tolerance" value="0.1" step="0.01">
+        <label for="taper-resolution">Taper resolution (mm)</label><input type="number" id="taper-resolution" value="0.1" step="0.01">
       </form>
       <h2>How it works</h2>
       <p>

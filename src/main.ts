@@ -1,4 +1,4 @@
-import { ProcessorParameters, process } from "./lib/processor";
+import { process } from "./lib/processor";
 import "./style.css";
 
 const processForm = document.querySelector("#process-form");
@@ -24,7 +24,15 @@ if (processForm) {
       const overlap = overlapEl.valueAsNumber;
       const loopTolerance = loopToleranceEl.valueAsNumber;
       const taperResolution = taperResolutionEl.valueAsNumber;
-      const gcode = await getFileText(fileInputEl);
+      const inputGcode = await getFileText(fileInputEl);
+      const outputGcode = process({
+        gcode: inputGcode,
+        layerHeight,
+        overlap,
+        loopTolerance,
+        taperResolution,
+      });
+
       // Remove any existing download button
       document.querySelector("#download-button")?.remove?.();
 
@@ -42,11 +50,12 @@ if (processForm) {
       downloadButtonA.download = `${
         fileInputEl.files?.[0]?.name ?? "unknown"
       }-processed.gcode`;
-      const blob = new Blob([gcode], { type: "text/plain" });
+      const blob = new Blob([outputGcode], { type: "text/plain" });
       downloadButtonA.href = URL.createObjectURL(blob);
       document.querySelector("#process-button")?.after?.(downloadButtonA);
     } catch (err) {
       window.alert(err);
+      console.error(err);
     }
   });
 }
