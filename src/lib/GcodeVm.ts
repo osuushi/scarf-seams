@@ -1,6 +1,11 @@
 import dedent from 'ts-dedent';
-import { Point } from './util';
-import { GcodeCommand, SimpleCommand, parseCommand } from './GcodeCommand';
+import { Point, vMul } from './util';
+import {
+  GcodeCommand,
+  SimpleCommand,
+  isMoveCommand,
+  parseCommand,
+} from './GcodeCommand';
 
 // A GcodeVM is a virtual machine which executes Marlin gcode commands and
 // tracks the printer's physical and logical state. The printer is immutable;
@@ -28,19 +33,25 @@ import { GcodeCommand, SimpleCommand, parseCommand } from './GcodeCommand';
 // state. We just have our top level VM variable "become" the next VM whenever
 // we want to accept the effect of the command.
 //
-// Note: Not all gcode commands are supported. In most cases, these commands are
-// simply ignored, since they don't affect the state that the VM tracks. A
-// notable exception is arc commands, which are not emulated. When the VM
-// executes an arc command, the resulting printer will have the logical X and Y
-// position set to Infinity, indicating that their values are now unknown. This
-// means that the VM cannot be used to process arcs. However, gcode which uses
-// arc commands during setup will work fine, so long as there is a homing
-// command or an absolute move for both X and Y (or individual moves), before
-// the logical or physical position needs to be queried. Note, though, that if a
-// G92 (set position) tries to set the logical position while the current
-// logical position is unknown, this will lead to the physical offset being
-// undefined. If you request the physical position while in this state, an error
-// will be thrown.
+// Notes:
+// - While the VM is described as "immutable", this is a convention. This is
+//   meant for hacking up proof of concept scripts, so if you need to modify the
+//   VM in your code, go for it. Just make sure you understand the consequences.
+//   However, the VM's methods will not ever modify a VM object except during
+//   creation.
+// - Not all gcode commands are supported. In most cases, these commands are
+//   simply ignored, since they don't affect the state that the VM tracks. A
+//   notable exception is arc commands, which are not emulated. When the VM
+//   executes an arc command, the resulting printer will have the logical X and
+//   Y position set to Infinity, indicating that their values are now unknown.
+//   This means that the VM cannot be used to process arcs. However, gcode which
+//   uses arc commands during setup will work fine, so long as there is a homing
+//   command or an absolute move for both X and Y (or individual moves), before
+//   the logical or physical position needs to be queried. Note, though, that if
+//   a G92 (set position) tries to set the logical position while the current
+//   logical position is unknown, this will lead to the physical offset being
+//   undefined. If you request the physical position while in this state, an
+//   error will be thrown.
 export class GcodeVm {
   positionMode: MoveMode = 'absolute';
   extrusionMode: MoveMode = 'relative';
@@ -65,9 +76,13 @@ export class GcodeVm {
   physicalOffset: Point = Point.zero;
   physicalEOffset: number = 0;
 
+  get logicalPositionKnown(): boolean {
+    return this.logicalPosition.isFinite();
+  }
+
   get physicalPosition(): Point {
     // Check for invalid physical offset
-    if (!this.logicalPosition.isFinite()) {
+    if (!this.logicalPositionKnown) {
       throw new Error(
         dedent`
           Cannot get physical position when logical position is unknown.
@@ -101,6 +116,18 @@ export class GcodeVm {
   }
 
   executeSimpleCommand(command: SimpleCommand): GcodeVm {
+    const clone = this._rawExecuteSimpleCommand(command);
+    // Update convenience properties
+    if (isMoveCommand(command)) {
+      clone.didExtrudeOnLastMove = clone.extrusion > this.extrusion;
+    }
+    return clone;
+  }
+
+  // This just executes the command and updates the primary state variables. You
+  // should use executeSimpleCommand instead, which also updates flags like
+  // didExtrudeOnLastMove.
+  _rawExecuteSimpleCommand(command: SimpleCommand): GcodeVm {
     switch (command.command) {
       case 'G0':
       case 'G1':
@@ -243,9 +270,11 @@ export class GcodeVm {
         break;
     }
 
-    clone.didExtrudeOnLastMove = this.extrusion < clone.extrusion;
-
     return clone;
+  }
+
+  convertPhysicalPositionToLogical(physicalPosition: Point): Point {
+    return physicalPosition.addVector(vMul(this.physicalOffset.toVector(), -1));
   }
 
   clone(): GcodeVm {

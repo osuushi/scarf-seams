@@ -16,6 +16,10 @@ export type UnknownCommand = {
   content: string;
 };
 
+export type MoveCommand = SimpleCommand & {
+  command: typeof codes.linearMove | typeof codes.rapidMove;
+};
+
 export type GcodeCommand = SimpleCommand | CommentCommand | UnknownCommand;
 
 export const codes = {
@@ -71,7 +75,7 @@ export function parseCommand(
   if (maybeSimpleCommandCode != null) {
     const commandCode = maybeSimpleCommandCode;
     const [beforeComment, ...commentParts] = gcodeLine.split(';');
-    const commandParts = beforeComment.split(/\s+/);
+    const commandParts = beforeComment.trim().split(/\s+/);
     const parsedArgs: Record<string, number> = {};
     for (const arg of commandParts.slice(1)) {
       const key = arg[0];
@@ -156,4 +160,13 @@ function stringifySimpleCommand(command: SimpleCommand): string {
   return `${command.command} ${argStrings.join(' ')}${
     command.comment ? `;${command.comment}` : ''
   }`;
+}
+
+// Utilities
+
+// Note that we don't include arc moves here, since they aren't supported beyond
+// passthrough and throwing away position state.
+const moveCodes: string[] = [codes.linearMove, codes.rapidMove];
+export function isMoveCommand(command: GcodeCommand): command is MoveCommand {
+  return command.type === 'simple' && moveCodes.includes(command.command);
 }

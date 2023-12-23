@@ -1,23 +1,23 @@
-import { process } from "./lib/processor";
-import "./style.css";
+import { process } from './lib/processor';
+import './style.css';
 
-const processForm = document.querySelector("#process-form");
+const processForm = document.querySelector('#process-form');
 if (processForm) {
-  processForm.addEventListener("submit", async (event) => {
+  processForm.addEventListener('submit', async (event) => {
     try {
       event.preventDefault();
       const layerHeightEl = document.querySelector(
-        "#layer-height"
+        '#layer-height',
       ) as HTMLInputElement;
-      const overlapEl = document.querySelector("#overlap") as HTMLInputElement;
+      const overlapEl = document.querySelector('#overlap') as HTMLInputElement;
       const fileInputEl = document.querySelector(
-        "#choose-file"
+        '#choose-file',
       ) as HTMLInputElement;
       const loopToleranceEl = document.querySelector(
-        "#loop-tolerance"
+        '#loop-tolerance',
       ) as HTMLInputElement;
       const taperResolutionEl = document.querySelector(
-        "#taper-resolution"
+        '#taper-resolution',
       ) as HTMLInputElement;
 
       const layerHeight = layerHeightEl.valueAsNumber;
@@ -34,27 +34,28 @@ if (processForm) {
       });
 
       // Remove any existing download button
-      document.querySelector("#download-button")?.remove?.();
+      document.querySelector('#download-button')?.remove?.();
 
       // Create a new download button, just for the original gcode right now
-      const downloadButtonA = document.createElement("a");
-      downloadButtonA.style.marginLeft = "1em";
-      const downloadButton = Object.assign(document.createElement("button"), {
-        textContent: "Download GCode",
-        type: "button",
+      const downloadButtonA = document.createElement('a');
+      downloadButtonA.style.marginLeft = '1em';
+      const downloadButton = Object.assign(document.createElement('button'), {
+        textContent: 'Download GCode',
+        type: 'button',
       });
 
       downloadButtonA.appendChild(downloadButton);
-      downloadButtonA.id = "download-button";
+      downloadButtonA.id = 'download-button';
 
       downloadButtonA.download = `${
-        fileInputEl.files?.[0]?.name ?? "unknown"
+        fileInputEl.files?.[0]?.name ?? 'unknown'
       }-processed.gcode`;
-      const blob = new Blob([outputGcode], { type: "text/plain" });
+      const blob = new Blob([outputGcode], { type: 'text/plain' });
       downloadButtonA.href = URL.createObjectURL(blob);
-      document.querySelector("#process-button")?.after?.(downloadButtonA);
+      document.querySelector('#process-button')?.after?.(downloadButtonA);
     } catch (err) {
       window.alert(err);
+      // eslint-disable-next-line no-console
       console.error(err);
     }
   });
@@ -64,7 +65,7 @@ function getFileText(fileInput: HTMLInputElement): Promise<string> {
   return new Promise((resolve, reject) => {
     const file = fileInput.files?.[0];
     if (!file) {
-      reject(new Error("No file selected"));
+      reject(new Error('No file selected'));
       return;
     }
     const reader = new FileReader();
