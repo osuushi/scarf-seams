@@ -18,23 +18,42 @@ export type UnknownCommand = {
 
 export type GcodeCommand = SimpleCommand | CommentCommand | UnknownCommand;
 
-// We have to specify the commands we actually care about, because vendor
-// specific codes can parse completely differently from standard codes. For
-// example, Bambulab has an undocumented M1002 command which takes arbitrary
-// strings as arguments.
-export const simpleCommandCodes = [
-  'G0',
-  'G1',
-  'G2',
-  'G3',
-  'G28',
-  'G90',
-  'G91',
-  'G92',
-  'G92.1',
-  'M82',
-  'M83',
-] as const;
+export const codes = {
+  rapidMove: 'G0',
+  linearMove: 'G1',
+  cwArc: 'G2',
+  ccwArc: 'G3',
+  home: 'G28',
+  absolute: 'G90',
+  relative: 'G91',
+  setPosition: 'G92',
+  resetPositionToNative: 'G92.1',
+  eAbsolute: 'M82',
+  eRelative: 'M83',
+} as const;
+
+// Template tags for supported Gcode commands, just to make code more readable,
+// particularly in tests.
+export const cmd = Object.fromEntries(
+  Object.entries(codes).map(([codeName, code]) => [
+    codeName,
+    (strings: TemplateStringsArray, ...args: unknown[]) => {
+      const suffix = String.raw(strings, ...args);
+      return `${code} ${suffix}`;
+    },
+  ]),
+) as Record<
+  keyof typeof codes,
+  (strings: TemplateStringsArray, ...args: unknown[]) => string
+>;
+
+// We have to specify the commands we actually care about as "simples", because
+// vendor specific codes can parse completely differently from standard codes.
+// For example, Bambulab has an undocumented M1002 command which takes arbitrary
+// strings as arguments. There are plenty of other codes which do use the
+// standard argument format, which we don't bother supporting, since those will
+// behave fine if passed through directly.
+export const simpleCommandCodes = Object.values(codes);
 
 export type SimpleCommandCode = (typeof simpleCommandCodes)[number];
 
@@ -48,10 +67,11 @@ export function parseCommand(
     };
   }
 
-  if (simpleCommandCodes.some((code) => gcodeLine.startsWith(`${code} `))) {
+  const maybeSimpleCommandCode = tryGetSimpleCommandCodeFromLine(gcodeLine);
+  if (maybeSimpleCommandCode != null) {
+    const commandCode = maybeSimpleCommandCode;
     const [beforeComment, ...commentParts] = gcodeLine.split(';');
     const commandParts = beforeComment.split(/\s+/);
-    const commandName = commandParts[0] as SimpleCommandCode; // typescript can't tell that we've filtered to this
     const parsedArgs: Record<string, number> = {};
     for (const arg of commandParts.slice(1)) {
       const key = arg[0];
@@ -60,7 +80,7 @@ export function parseCommand(
     }
 
     // G92.1 is a special case for "reset to native"
-    if (commandName === 'G92.1') {
+    if (commandCode === 'G92.1') {
       parsedArgs.X = 0;
       parsedArgs.Y = 0;
       parsedArgs.Z = 0;
@@ -68,7 +88,7 @@ export function parseCommand(
 
     return {
       type: 'simple',
-      command: commandName,
+      command: commandCode,
       args: parsedArgs,
       comment: commentParts.join(';'),
     };
@@ -89,6 +109,23 @@ export function stringifyCommand(command: GcodeCommand): string {
     case 'unknown':
       return stringifyUnknownCommand(command);
   }
+}
+
+const simpleCommandRegex = /^\s*([A-Z][0-9.]+)\b/;
+function tryGetSimpleCommandCodeFromLine(
+  line: string,
+): SimpleCommandCode | null {
+  const match = line.match(simpleCommandRegex);
+
+  if (!match) {
+    return null;
+  }
+
+  if (!simpleCommandCodes.includes(match[1] as SimpleCommandCode)) {
+    return null;
+  }
+
+  return match[1] as SimpleCommandCode;
 }
 
 function stringifyCommentCommand(command: CommentCommand): string {

@@ -8,8 +8,28 @@ import { GcodeCommand, SimpleCommand, parseCommand } from './GcodeCommand';
 // it ideal for speculative execution of gcode instructions and inspection of
 // the results.
 //
-// Note that not all gcode commands are supported. In most cases, these commands
-// are simply ignored, since they don't affect the state that the VM tracks. A
+// For a simple, contrived example, if you wanted to filter out all gcode lines
+// in a file which cause retractions, you could do something like this:
+
+// function filterRetractions(gcode: string): string {
+//    const gcodeLines = gcode.split('\n');
+//    let vm = new GcodeVm();
+//    const outputLines = [];
+//    for (const line of gcodeLines) {
+//      nextVm = vm.executeLine(line);
+//      if (nextVm.extrusion < vm.extrusion) continue; // skip retractions
+//      vm = nextVm;
+//    }
+//    outputLines.push(line);
+//    return outputLines.join('\n');
+// }
+
+// Since the VM is immutable, we never had to explicitly undo any changes to the
+// state. We just have our top level VM variable "become" the next VM whenever
+// we want to accept the effect of the command.
+//
+// Note: Not all gcode commands are supported. In most cases, these commands are
+// simply ignored, since they don't affect the state that the VM tracks. A
 // notable exception is arc commands, which are not emulated. When the VM
 // executes an arc command, the resulting printer will have the logical X and Y
 // position set to Infinity, indicating that their values are now unknown. This
@@ -171,10 +191,18 @@ export class GcodeVm {
       );
 
     const clone = this.clone();
+    let anyAxisHomed = false;
     for (const axis of ['x', 'y', 'z'] as const) {
       if (axis.toUpperCase() in args) {
+        anyAxisHomed = true;
         clone.physicalOffset[axis] = 0;
+        clone.logicalPosition[axis] = 0;
       }
+    }
+    if (!anyAxisHomed) {
+      // No axes passed means home all axes
+      clone.physicalOffset = Point.zero;
+      clone.logicalPosition = Point.zero;
     }
     return clone;
   }

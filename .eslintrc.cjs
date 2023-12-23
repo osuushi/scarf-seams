@@ -25,5 +25,6 @@ module.exports = {
     'prettier/prettier': 'error',
     'no-constant-condition': 'off',
     'prefer-template': 'error',
+    'no-console': 'error',
   },
 };
