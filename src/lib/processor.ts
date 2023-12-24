@@ -16,6 +16,7 @@ export type ProcessorParameters = {
   loopTolerance: number;
   taperResolution: number;
   seamGap: number;
+  extrusionFactor: number;
 };
 
 export function process(params: ProcessorParameters): string {
@@ -64,6 +65,14 @@ class Processor {
     this.currentPosition = new Point(Infinity, Infinity, Infinity);
     this.params = params;
     this.inputGcodeLines = this.params.gcode.split('\n');
+  }
+
+  // Since we sometimes have to do a smaller overlap, we compensate by just
+  // always treating the seam gap as a fraction of the overlap. This is a bit of
+  // a hack, and doesn't have a physical justification, but it's good enough for
+  // the PoC.
+  get gapFraction(): number {
+    return this.params.seamGap / this.params.overlap;
   }
 
   process(): string {
@@ -297,6 +306,9 @@ class Processor {
   ): GcodeCommand[] {
     let startPoint = vm.physicalPosition;
     let accumDistance = 0;
+    const adjustedOverlap = overlap * (1 - this.gapFraction);
+    // Offset so that with the adjustment, we still end in the same place
+    const offset = overlap - adjustedOverlap;
     return taperSection.map((curCommand) => {
       // The VM state if we had used the original point
       const nextVm = vm.executeCommand(curCommand);
@@ -309,7 +321,7 @@ class Processor {
       accumDistance += startPoint.distanceTo(nextPoint);
       startPoint = nextPoint;
 
-      const t = accumDistance / overlap;
+      const t = Math.max((accumDistance - offset) / adjustedOverlap, 0);
       const extrusion = t * (nextVm.extrusion - vm.extrusion);
       const zOffset = (1 - t) * this.params.layerHeight;
       const newZ = Math.max(nextVm.physicalPosition.z - zOffset, this.minSafeZ);
@@ -321,7 +333,7 @@ class Processor {
         args: {
           ...curCommand.args,
           Z: logicalPosition.z,
-          E: extrusion,
+          E: extrusion * this.params.extrusionFactor,
         },
       };
       // We do not want to update the VM with the new command, since we've
@@ -334,6 +346,10 @@ class Processor {
   // This is very similar to makeStartingTaper, but we ramp the extrusion down
   // instead of up, and we don't touch the Z coordinate. We also skip any
   // non-moves, rather than duplicating them.
+  //
+  // The ending taper is also affected by the seam gap, unlike the starting
+  // taper, so it tapers off more quickly, accounting for slight over-extrusion
+  // at loop ends to prevent zits.
   makeEndingTaper(
     vm: GcodeVm,
     taperSection: GcodeCommand[],
@@ -341,6 +357,7 @@ class Processor {
   ): GcodeCommand[] {
     let startPoint = vm.physicalPosition;
     let accumDistance = 0;
+    const adjustedOverlap = overlap * (1 - this.gapFraction);
     const results = [];
     for (const curCommand of taperSection) {
       // The VM state if we had used the original point
@@ -364,17 +381,13 @@ class Processor {
       accumDistance += startPoint.distanceTo(nextPoint);
       startPoint = nextPoint;
 
-      const t = accumDistance / overlap;
+      const t = Math.min(accumDistance / adjustedOverlap, 1);
       const extrusion = (1 - t) * (nextVm.extrusion - vm.extrusion);
-      const logicalPosition = vm.convertPhysicalPositionToLogical(nextPoint);
       const newCommand = {
         ...curCommand,
         args: {
           ...curCommand.args,
-          X: logicalPosition.x,
-          Y: logicalPosition.y,
-          Z: logicalPosition.z,
-          E: extrusion,
+          E: extrusion * this.params.extrusionFactor,
         },
       };
       results.push(newCommand);

@@ -20,6 +20,9 @@ if (processForm) {
         '#taper-resolution',
       ) as HTMLInputElement;
       const seamGapEl = document.querySelector('#seam-gap') as HTMLInputElement;
+      const extrusionFactorEl = document.querySelector(
+        '#extrusion-factor',
+      ) as HTMLInputElement;
 
       const layerHeight = layerHeightEl.valueAsNumber;
       const overlap = overlapEl.valueAsNumber;
@@ -27,6 +30,7 @@ if (processForm) {
       const taperResolution = taperResolutionEl.valueAsNumber;
       const seamGap = seamGapEl.valueAsNumber;
       const inputGcode = await getFileText(fileInputEl);
+      const extrusionFactor = extrusionFactorEl.valueAsNumber;
       const outputGcode = process({
         gcode: inputGcode,
         layerHeight,
@@ -34,6 +38,7 @@ if (processForm) {
         loopTolerance,
         taperResolution,
         seamGap,
+        extrusionFactor,
       });
 
       // Remove any existing download button
