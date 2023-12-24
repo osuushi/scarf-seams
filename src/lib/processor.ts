@@ -15,6 +15,7 @@ export type ProcessorParameters = {
   overlap: number;
   loopTolerance: number;
   taperResolution: number;
+  seamGap: number;
 };
 
 export function process(params: ProcessorParameters): string {
@@ -548,6 +549,5 @@ class Processor {
     if (!Number.isFinite(this.minSafeZ)) {
       throw new Error('Could not find minimum safe Z coordinate');
     }
-    console.log('minSafeZ', this.minSafeZ);
   }
 }

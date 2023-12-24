@@ -19,11 +19,13 @@ if (processForm) {
       const taperResolutionEl = document.querySelector(
         '#taper-resolution',
       ) as HTMLInputElement;
+      const seamGapEl = document.querySelector('#seam-gap') as HTMLInputElement;
 
       const layerHeight = layerHeightEl.valueAsNumber;
       const overlap = overlapEl.valueAsNumber;
       const loopTolerance = loopToleranceEl.valueAsNumber;
       const taperResolution = taperResolutionEl.valueAsNumber;
+      const seamGap = seamGapEl.valueAsNumber;
       const inputGcode = await getFileText(fileInputEl);
       const outputGcode = process({
         gcode: inputGcode,
@@ -31,6 +33,7 @@ if (processForm) {
         overlap,
         loopTolerance,
         taperResolution,
+        seamGap,
       });
 
       // Remove any existing download button
