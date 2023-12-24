@@ -1,5 +1,5 @@
 import { process } from './lib/processor';
-import './style.css';
+import 'mvp.css/mvp.css';
 
 const processForm = document.querySelector('#process-form');
 if (processForm) {

@@ -23,6 +23,7 @@
     "vitest": "^1.1.0"
   },
   "dependencies": {
+    "mvp.css": "^1.14.0",
     "ts-dedent": "^2.2.0"
   }
 }
