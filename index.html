@@ -10,53 +10,26 @@
 <body>
   <main>
     <h1>scarf-seams</h1>
+    <h2>Warning</h2>
     <p>
-      This is a gcode post-processor for testing out "scarf seams" as
-      discussed in <a href="https://github.com/prusa3d/PrusaSlicer/issues/11621">several</a>
-      recent <a href="https://github.com/vgdh/seam-hiding-whitepaper">GitHub
-        issues and projects.</a>
+      This is an experimental tool in a pre-release state. Post-processing gcode
+      is complicated, and bugs could cause your printer to try to move your
+      nozzle out of bounds (including crashing into the print bed). The code
+      attempts to protect against these cases, but there is no substitute for
+      examining the output gcode in a gcode previewer before printing. <strong>Use
+        at your own risk.</strong>
+    <h2> Purpose </h2>
+    <p> There has been some experimentation recently with hiding seems with 3D
+      printing. <a href="https://github.com/vgdh/seam-hiding-whitepaper" target="_blank">This repo</a> and
+      <a href="https://github.com/prusa3d/PrusaSlicer/issues/11621" target="_blank">this PrusaSlicer pull request</a>
+      discuss the
+      technique, and provide examples using custom generated gcode. However, these
+      examples only allow creating a cylinder.
     </p>
     <p>
-      Whereas those demos test out the process on simple cylinders, this
-      project will convert any arbitrary model to use overlapping seams.
+      This tool will allow you to load an arbitrary (see requirements below)
+      gcode file and apply the technique to it.
     </p>
-    <p>
-      Treat this as <em>extremely</em> experimental, as you would with any
-      gcode post-processor. Preview the gcode in a slicer before sending it to
-      your printer, and make sure it isn't doing anything wild. <strong>This
-        tool is offered as is, and at your own risk.</strong>
-    </p>
-    <p>
-      Theoretically, this should work with any printer that uses Marlin style
-      gcode and absolute positioning during print moves. So far, I've tested
-      it on my Bambulab X1C (with gcode from OrcaSlicer), and my Prusa mk3s+
-      (with gcode from PrusaSlicer).
-    </p>
-    <p>
-      <strong>Requirements:</strong>
-    <ol>
-      <li>Turn off arc fitting. This tool doesn't support them.</li>
-      <li>You must use a fixed layer height. No variable heights, and the
-        first layer must be at least as large as the remaining layers.</li>
-      <li>Your printer must use Marlin style gcode. Other gcode formats are not supported.</li>
-      <li>Positioning must be absolute.</li>
-      <li>Extrusion must be relative</li>
-      <li>Units are assumed to be in mm</li>
-      <li>If you have a seam gap option, set it to zero</li>
-    </ol>
-    </p>
-    <p>
-      When possible, the tool will try to detect and warn you if these
-      requirements aren't met, but you should still check to make sure by
-      previewing the gcode.
-    </p>
-    <p>
-      <strong>Be especially careful about the first layer height.</strong>
-      Make sure that the layer height value you provide below is <strong>less
-        than or equal</strong> to the first layer height you use in your slicer.
-      The tool will try to protect your printer by never emitting any Z
-      coordinate lower than the smallest value it sees, but if that goes
-      wrong, your nozzle might crash into your print bed.
     </p>
     <form id="process-form">
       <label for="layer-height">Layer Height</label><input type="number" id="layer-height" value="0.2" step="0.01">
@@ -73,41 +46,61 @@
       <label for="taper-resolution">Taper resolution (mm)</label><input type="number" id="taper-resolution" value="0.1"
         step="0.01">
     </form>
-    <h2>How it works</h2>
+    <h2>Requirements</h2>
     <p>
-      This tool works by finding "closed loops" in the gcode, which are
-      assumed to be perimeters. These loops are defined as sequences of G1
-      commands where:
-    <ol>
-      <li>The Z coordinate is constant</li>
-      <li>The extrusion is always positive</li>
-      <li>The distance between the start and end points is less than the "loop tolerance"</li>
-      <li>There are no intervening non-G1 commands</li>
-    </ol>
+      Your gcode file must meet the following requirements:
+    </p>
+    <ul>
+      <li>Marlin gcode</li>
+      <li>Absolute positioning for the XYZ coordinates (this is very typical)</li>
+      <li>Relative positioning for extruder (also typical)</li>
+      <li>No arc moves during actual printing. (You may need to turn off "arc
+        fitting" or similar in your slicer)</li>
+      <li>Fixed layer height (which should match the layer height you set in the
+        form above)</li>
+      <li>No "seam gap" in the original gcode. This setting is often set by
+        default to avoid extra material building up at the seams, but it
+        interferes with loop detection. You should set it to zero in your slicer.</li>
+    </ul>
+    <p>
+      In some cases, the tool will detect these issues and alert you. In other
+      cases, code where the requirements are not met will simply be skipped
+      over. <strong>Always use a slicer or similar tool with a gcode preview to
+        verify the output file.</strong>
+    </p>
+    <h2>Parameters</h2>
+    <p>
+      <strong>Layer Height</strong> - The layer height of your print. This should
+      match the layer height used in your slicer.
     </p>
     <p>
-      Once a closed loop is identified, the line segments making it up are
-      accumulated until they reach the "overlap distance". If necessary, the
-      final command is split into two parts, so that the total length of the
-      command sequence is exactly the overlap distance. (If the entire length
-      of the segment is less than the overlap distance, the segment is left
-      alone.)
+      <strong>Overlap Distance</strong> - The distance to overlap the ends of
+      each loop.
     </p>
     <p>
-      This initial overlap is then split into shorter segments (roughly the
-      "taper resolution" long). This sequence is then duplicated and appended
-      to the end of the loop.
+      <strong>Seam Gap</strong> - A fudge factor for preventing zits around the
+      seams. This will end the taper early so that an excess of material doesn't
+      build up. The correct value will depend on your printer.
     </p>
     <p>
-      The first copy of the modified sequence is tapered by multiplying the
-      extrusion by a linear function varying from 0 to 1, and ramping the Z
-      value based on the provided layer height.
+      <strong>Extrusion Factor</strong> - Another fudge factor to reduce
+      effective overextrusion or underextrusion. This will scale the extrusion amount in the
+      overlap region.
     </p>
     <p>
-      The second copy of the modified sequence is tapered by multiplying the
-      extrusion by a linear function varying from 1 to 0. The Z value is left
-      alone.
+      <strong>Loop Tolerance</strong> - The maximum distance between the start
+      and end of a loop. If you can't turn off the "seam gap" setting in your
+      slicer, you can compensate it by increasing this value. Note that this may
+      cause artifacts in some cases by incorrectly identifying small,
+      intentional gaps as loop ends.
     </p>
+    <p>
+      <strong>Taper Resolution</strong> - The size of the steps in the taper
+      sections which ramp up extrusion and Z height. The smaller this is, the
+      larger your output gcode will be. Theoretically, you could set this so low
+      that your printer would struggle to read the gcode fast enough during
+      printing. Larger values may cause noticeable stair-stepping. You probably
+      don't need to change this setting.
   </main>
   <script type="module" src="/src/main.ts"></script>
 </body>
